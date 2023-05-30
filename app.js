@@ -29,7 +29,7 @@ const pool = mysql.createPool({
 app.post('/identify', (req, res) => {
   const { userId, password } = req.body;
 
-  
+
   pool.getConnection((err, connection) => {
     if (err) {
       res.status(500).json({ error: 'Database connection error' });
@@ -55,6 +55,31 @@ app.post('/identify', (req, res) => {
       );
     }
   });
+});
+// Add the verifyToken middleware
+function verifyToken(req, res, next) {
+  
+  const token = req.headers.authorization?.split(' ')[1] || req.query.token;
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access denied. No token provided.' });
+  }
+
+  
+  jwt.verify(token, 'this_is_my_token', (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ error: 'Invalid token.' });
+    }
+
+    
+    req.user = decoded;
+    next();
+  });
+}
+
+
+app.get('/start', verifyToken, (req, res) => {
+  res.render('start.ejs',{ user: req.user }); 
 });
 
 
