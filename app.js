@@ -29,7 +29,7 @@ const pool = mysql.createPool({
 app.post('/identify', (req, res) => {
   const { userId, password } = req.body;
 
-
+ 
   pool.getConnection((err, connection) => {
     if (err) {
       res.status(500).json({ error: 'Database connection error' });
@@ -43,7 +43,7 @@ app.post('/identify', (req, res) => {
           } else if (results.length === 0) {
             res.status(401).json({ error: 'Invalid credentials' });
           } else {
-            // Generate a JWT token
+            
             const user = results[0];
             const token = jwt.sign({ userId: user.userID, role: user.role }, 'your_secret_key');
 
@@ -56,17 +56,17 @@ app.post('/identify', (req, res) => {
     }
   });
 });
-// Add the verifyToken middleware
+
 function verifyToken(req, res, next) {
-  
+
   const token = req.headers.authorization?.split(' ')[1] || req.query.token;
 
   if (!token) {
     return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
 
-  
-  jwt.verify(token, 'this_is_my_token', (err, decoded) => {
+ 
+  jwt.verify(token, 'your_secret_key', (err, decoded) => {
     if (err) {
       return res.status(401).json({ error: 'Invalid token.' });
     }
@@ -78,11 +78,29 @@ function verifyToken(req, res, next) {
 }
 
 
+/*app.get('/start', verifyToken, (req, res) => {
+  res.render('start.ejs',{ user: req.user }); // Pass the decoded user object to the view
+});*/
+
+
 app.get('/start', verifyToken, (req, res) => {
-  res.render('start.ejs',{ user: req.user }); 
+  const { role } = req.user;
+
+  if (role === 'admin') {
+    
+    const users = [
+      { userID: 'id1', name: 'User1', role: 'student', password: 'password' },
+      { userID: 'id2', name: 'User2', role: 'student', password: 'password2' },
+      { userID: 'id3', name: 'User3', role: 'teacher', password: 'password3' },
+      { userID: 'admin', name: 'Admin', role: 'admin', password: 'admin' }
+    ];
+    return res.render('admin.ejs', {users});
+  }
+    res.render('start.ejs', { user: req.user });
+  
 });
 
-
+// Start the server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
