@@ -4,7 +4,6 @@ const mysql = require('mysql');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-
 const port = 4444; 
 
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -15,14 +14,13 @@ app.get('/identify', (req, res) => {
   res.render('identify.ejs'); 
 });
 
-//Setting up database connection
+// Create a MySQL connection pool
 const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
   password: 'root',
   database: 'lab4_users',
 });
-
 app.post('/identify', (req, res) => {
   const { userId, password } = req.body;
  
@@ -39,34 +37,44 @@ app.post('/identify', (req, res) => {
           } else if (results.length === 0) {
             res.status(401).json({ error: 'Invalid user id and password' });
           } else {
-            //generate token
+          // Generate a JWT token
             const user = results[0];
-            const token = jwt.sign({ userId: user.userID, role: user.role }, 'your_secret_key');
-
+            const token = jwt.sign({ userId: user.userID, role: user.role }, 'this_is_my_token');
+            
             res.json({ token });
           }
-          connection.release(); 
+          connection.release();
         }
       );
     }
   });
 });
-// VerifyToken middleware is added
 function verifyToken(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1] || req.query.token;
+ 
+  if (req.path === '/identify') {
+    return next();
+  }
   if (!token) {
-   return res.redirect('/identify'); 
+    console.log('No token provided');
+   return res.redirect('/identify');
   }
   jwt.verify(token, 'this_is_my_token', (err, decoded) => {
+    
     if (err) {
-         return res.redirect('/identify'); 
-      }
+      console.log('Invalid token');
+      return res.redirect('/identify'); 
+    }
+      console.log(decoded);  
     req.user = decoded;
+    console.log('Role:', req.user.role);
     next();
   });
 }
+
 app.get('/start', verifyToken, (req, res) => {
   const { role } = req.user;
+
  if (role === 'admin') {
     const users = [
       { userID: 'id1', name: 'User1', role: 'student', password: 'password' },
@@ -76,9 +84,39 @@ app.get('/start', verifyToken, (req, res) => {
     ];
     return res.render('admin.ejs', {users});
   }
-    res.render('start.ejs', { user: req.user });
-  });
-
+  res.render('start.ejs', { user: req.user });
+});
+app.get('/student1', verifyToken, (req, res) => {
+  
+  const { role} = req.user;
+  console.log(req.user);
+  console.log(role);
+  if (role === 'student1'){ 
+  return res.render('student1.ejs', {users});
+  }else{
+    res.status(401).redirect('/identify');
+  }
+});
+app.get('/student2', verifyToken, (req, res) => {
+  const { role} = req.user;
+  if (role === 'student2'){ 
+  return res.render('student2');
+  }else{
+    res.status(401).redirect('/identify');
+  }
+});
+app.get('/teacher', verifyToken, (req, res) => {
+  const { role } = req.user;
+  if (role === 'teacher') {
+    return res.render('teacher');
+  }else{
+    res.status(401).redirect('/identify');
+  }
+});
+app.get('/identify', (req, res) => {
+  res.render('identify');
+});
+  
 // Start the server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
