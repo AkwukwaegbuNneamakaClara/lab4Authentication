@@ -5,10 +5,8 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 
-
 const port = 4444; 
 
-// Configure body-parser middleware to parse request bodies
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.set('view-engine','ejs')
@@ -17,7 +15,7 @@ app.get('/identify', (req, res) => {
   res.render('identify.ejs'); 
 });
 
-
+//Setting up database connection
 const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
@@ -25,14 +23,12 @@ const pool = mysql.createPool({
   database: 'lab4_users',
 });
 
-
 app.post('/identify', (req, res) => {
   const { userId, password } = req.body;
-
  
   pool.getConnection((err, connection) => {
     if (err) {
-      res.status(500).json({ error: 'Database connection error' });
+      res.status(500).json({ error: 'Error connecting to database' });
     } else {
       connection.query(
         `SELECT * FROM Users WHERE userID = ? AND password = ?`,
@@ -41,53 +37,37 @@ app.post('/identify', (req, res) => {
           if (error) {
             res.status(500).json({ error: 'Database query error' });
           } else if (results.length === 0) {
-            res.status(401).json({ error: 'Invalid credentials' });
+            res.status(401).json({ error: 'Invalid user id and password' });
           } else {
-            
+            //generate token
             const user = results[0];
             const token = jwt.sign({ userId: user.userID, role: user.role }, 'your_secret_key');
 
             res.json({ token });
           }
-
           connection.release(); 
         }
       );
     }
   });
 });
-
+// VerifyToken middleware is added
 function verifyToken(req, res, next) {
-
   const token = req.headers.authorization?.split(' ')[1] || req.query.token;
-
   if (!token) {
-    return res.status(401).json({ error: 'Access denied. No token provided.' });
+   return res.redirect('/identify'); 
   }
-
- 
-  jwt.verify(token, 'your_secret_key', (err, decoded) => {
+  jwt.verify(token, 'this_is_my_token', (err, decoded) => {
     if (err) {
-      return res.status(401).json({ error: 'Invalid token.' });
-    }
-
-    
+         return res.redirect('/identify'); 
+      }
     req.user = decoded;
     next();
   });
 }
-
-
-/*app.get('/start', verifyToken, (req, res) => {
-  res.render('start.ejs',{ user: req.user }); // Pass the decoded user object to the view
-});*/
-
-
 app.get('/start', verifyToken, (req, res) => {
   const { role } = req.user;
-
-  if (role === 'admin') {
-    
+ if (role === 'admin') {
     const users = [
       { userID: 'id1', name: 'User1', role: 'student', password: 'password' },
       { userID: 'id2', name: 'User2', role: 'student', password: 'password2' },
@@ -97,8 +77,7 @@ app.get('/start', verifyToken, (req, res) => {
     return res.render('admin.ejs', {users});
   }
     res.render('start.ejs', { user: req.user });
-  
-});
+  });
 
 // Start the server
 app.listen(port, () => {
